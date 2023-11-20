@@ -80,6 +80,8 @@ namespace EchoRelay.Cli
             [Option("disable-cache", Required = false, Default = false, HelpText = "Disables the file cache. Edits to JSON files will be immediately effective.")]
             public bool DisableCache { get; set; } = true;
 
+            [Option("enable-starter-bots", Required = false, Default = false, HelpText = "Allows bots to fill in newly created Arena games. Helps keep the game fun while waiting for human players.")]
+            public bool EnableStarterBots { get; set; } = false;
         }
 
         /// <summary>
@@ -144,7 +146,8 @@ namespace EchoRelay.Cli
                         serverDBValidateServerEndpoint: options.ServerDBValidateGameServers,
                         serverDBValidateServerEndpointTimeout: options.ServerDBValidateGameServersTimeout,
                         favorPopulationOverPing: !options.LowPingMatching,
-                        forceIntoAnySessionIfCreationFails: options.ForceMatching
+                        forceIntoAnySessionIfCreationFails: options.ForceMatching,
+                        enableStarterBots: options.EnableStarterBots
                         )
                     );
 

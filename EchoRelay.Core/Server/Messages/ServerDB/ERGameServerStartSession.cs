@@ -112,7 +112,7 @@ namespace EchoRelay.Core.Server.Messages.ServerDB
                 EntrantDescriptors = new EntrantDescriptor[finalStructCount];
 
             // Stream the remaining data
-            for(int i = 0; i < EntrantDescriptors.Length; i++)
+            for (int i = 0; i < EntrantDescriptors.Length; i++)
             {
                 // If we're reading, make sure we have a valid item.
                 if (io.StreamMode == StreamMode.Read)
@@ -136,7 +136,7 @@ namespace EchoRelay.Core.Server.Messages.ServerDB
             Public = 0x0,
             Private = 0x1,
             Unassigned = 0x2,
-        } 
+        }
 
         /// <summary>
         /// Session settings for the session to be started by a <see cref="ERGameServerStartSession"/> message.
@@ -188,47 +188,67 @@ namespace EchoRelay.Core.Server.Messages.ServerDB
         public class EntrantDescriptor : IStreamable
         {
             /// <summary>
-            /// TODO: Unknown, maybe a player session UUID?
+            /// The player session UUID
             /// </summary>
-            public Guid Unk0;
+            public Guid Session;
             /// <summary>
             /// The player identifier which the entrant descriptor describes.
             /// </summary>
             public XPlatformId PlayerId;
             /// <summary>
             /// TODO: Unknown flags.
-            /// Observed to be 0x0144BB8000 for player, 0x0044BB8000 for bot player id in public AI match.
+            /// Observed to be 0x44BB8000
             /// </summary>
-            public ulong Flags;
+            public uint Flags;
+            /// <summary>
+            /// The team index of the player.
+            /// </summary>
+            public TeamIndex TeamIndex
+            {
+                get
+                {
+                    return (TeamIndex)_teamIndex;
+                }
+            }
+            private short _teamIndex;
+            public ushort Unk1;
 
             /// <summary>
             /// Creates a random bot entrant descriptor.
             /// </summary>
             public EntrantDescriptor()
             {
-                Unk0 = SecureGuidGenerator.Generate();
+                Session = SecureGuidGenerator.Generate();
                 PlayerId = new XPlatformId(PlatformCode.BOT, BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(8)));
-                Flags = 0x0044BB8000;
+                Flags = 0x44BB8000;
+                _teamIndex = (short)TeamIndex.Spectator;
+                Unk1 = 0x0000;
             }
 
             /// <summary>
             /// Creates an entrant desciptor with the provided arguments.
             /// </summary>
-            /// <param name="unk0">TODO: Unknown</param>
+            /// <param name="session">The player session UUID</param>
             /// <param name="playerId">The player identifier which the entrant descriptor corresponds to.</param>
             /// <param name="flags">TODO: Some unknown flags</param>
-            public EntrantDescriptor(Guid unk0, XPlatformId playerId, ulong flags)
+            /// <param name="teamIndex">The team index of the player.</param>
+            /// <param name="unk1">TODO: Unknown value</param>"
+            public EntrantDescriptor(Guid session, XPlatformId playerId, uint flags, TeamIndex teamIndex, ushort unk1)
             {
-                Unk0 = unk0;
+                Session = session;
                 PlayerId = playerId;
+                Unk1 = unk1;
+                _teamIndex = (byte)teamIndex;
                 Flags = flags;
             }
 
             public void Stream(StreamIO io)
             {
-                io.Stream(ref Unk0);
+                io.Stream(ref Session);
                 PlayerId.Stream(io);
                 io.Stream(ref Flags);
+                io.Stream(ref _teamIndex);
+                io.Stream(ref Unk1);
             }
         }
         #endregion

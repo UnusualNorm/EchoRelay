@@ -79,13 +79,16 @@ namespace EchoRelay.Core.Server
         /// before player count.
         /// </summary>
         public bool FavorPopulationOverPing { get; }
+
+        public bool EnableStarterBots { get; }
         #endregion
 
         #region Constructor
         public ServerSettings(ushort port = 777, string apiServicePath = "/api", string configServicePath = "/config",
             string loginServicePath = "/login", string matchingServicePath = "/matching",
             string serverdbServicePath = "/serverdb", string transactionServicePath = "/transaction", TimeSpan? disconnectedSessionTimeout = null,
-            string? serverDbApiKey = null, bool serverDBValidateServerEndpoint = false, int serverDBValidateServerEndpointTimeout = 3000, bool forceIntoAnySessionIfCreationFails = false, bool favorPopulationOverPing = true)
+            string? serverDbApiKey = null, bool serverDBValidateServerEndpoint = false, int serverDBValidateServerEndpointTimeout = 3000, bool forceIntoAnySessionIfCreationFails = false,
+            bool favorPopulationOverPing = true, bool enableStarterBots = false)
         {
             Port = port;
             ApiServicePath = apiServicePath;
@@ -101,6 +104,7 @@ namespace EchoRelay.Core.Server
             ServerDBValidateServerEndpointTimeout = serverDBValidateServerEndpointTimeout;
             ForceIntoAnySessionIfCreationFails = forceIntoAnySessionIfCreationFails;
             FavorPopulationOverPing = favorPopulationOverPing;
+            EnableStarterBots = enableStarterBots;
         }
         #endregion
 

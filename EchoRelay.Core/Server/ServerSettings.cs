@@ -80,7 +80,7 @@ namespace EchoRelay.Core.Server
         /// </summary>
         public bool FavorPopulationOverPing { get; }
 
-        public bool EnableStarterBots { get; }
+        public bool EnableFillerBots { get; }
         #endregion
 
         #region Constructor
@@ -88,7 +88,7 @@ namespace EchoRelay.Core.Server
             string loginServicePath = "/login", string matchingServicePath = "/matching",
             string serverdbServicePath = "/serverdb", string transactionServicePath = "/transaction", TimeSpan? disconnectedSessionTimeout = null,
             string? serverDbApiKey = null, bool serverDBValidateServerEndpoint = false, int serverDBValidateServerEndpointTimeout = 3000, bool forceIntoAnySessionIfCreationFails = false,
-            bool favorPopulationOverPing = true, bool enableStarterBots = false)
+            bool favorPopulationOverPing = true, bool enableFillerBots = false)
         {
             Port = port;
             ApiServicePath = apiServicePath;
@@ -104,7 +104,7 @@ namespace EchoRelay.Core.Server
             ServerDBValidateServerEndpointTimeout = serverDBValidateServerEndpointTimeout;
             ForceIntoAnySessionIfCreationFails = forceIntoAnySessionIfCreationFails;
             FavorPopulationOverPing = favorPopulationOverPing;
-            EnableStarterBots = enableStarterBots;
+            EnableFillerBots = enableFillerBots;
         }
         #endregion
 

@@ -291,7 +291,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
             if (mergedSessionSettings.GameType != null)
             {
                 string? gameTypeName = Server.SymbolCache.GetName(mergedSessionSettings.GameType.Value);
-                if (gameTypeName == "echo_arena" && Server.Settings.EnableStarterBots)
+                if (gameTypeName == "echo_arena" && Server.Settings.EnableFillerBots)
                 {
                     for (int i = 0; i < 4; i++)
                     {
@@ -376,6 +376,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
                     );
 
                 TeamIndex teamIndex = matchingSession.TeamIndex;
+                // Replace a bot if we can
                 if (teamIndex == TeamIndex.Any && _botSessions.Count > 0) teamIndex = _botSessions.Values.First();
                 // Currently, if there's only one bot on a team, and the players don't launch at the countdown, the server will crash.
                 // So we get around this by adding two bots at startup, and removing BOTH of them when a player joins.

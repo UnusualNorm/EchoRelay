@@ -376,18 +376,14 @@ namespace EchoRelay.Core.Server.Services.ServerDB
                     );
 
                 TeamIndex teamIndex = matchingSession.TeamIndex;
-                var botSessions = _botSessions.AsEnumerable().Where(x => matchingSession.TeamIndex == TeamIndex.Any || x.Value == matchingSession.TeamIndex).ToArray();
-                if (botSessions.Length > 0)
+                if (teamIndex == TeamIndex.Any && _botSessions.Count > 0) teamIndex = _botSessions.Values.First();
+                // Currently, if there's only one bot on a team, and the players don't launch at the countdown, the server will crash.
+                // So we get around this by adding two bots at startup, and removing BOTH of them when a player joins.
+                foreach (var botSession in _botSessions)
                 {
-                    // Prioritize teams with too many bots.
-                    if (botSessions.Length > 1)
-                    {
-                        var teamCounts = botSessions.GroupBy(x => x.Value).Select(x => (team: x.Key, count: x.Count())).ToDictionary(x => x.team, x => x.count);
-                        botSessions = botSessions.OrderBy(x => teamCounts[x.Value]).Reverse().ToArray();
-                    }
-                    await Peer.Send(new ERGameServerPlayersRejected(ERGameServerPlayersRejected.PlayerSessionError.Internal, new[] { botSessions[0].Key }));
-                    teamIndex = botSessions[0].Value;
-                    _botSessions.Remove(botSessions[0].Key);
+                    if (botSession.Value != teamIndex) continue;
+                    await Peer.Send(new ERGameServerPlayersRejected(ERGameServerPlayersRejected.PlayerSessionError.Internal, new[] { botSession.Key }));
+                    _botSessions.Remove(botSession.Key);
                 }
 
                 // Create our success messages with our game server and client packet encryption parameters.

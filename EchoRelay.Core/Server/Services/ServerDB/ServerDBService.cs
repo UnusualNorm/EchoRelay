@@ -3,7 +3,7 @@ using EchoRelay.Core.Server.Messages.Common;
 using EchoRelay.Core.Server.Messages.ServerDB;
 using System.Collections.Specialized;
 using System.Web;
-using static EchoRelay.Core.Server.Services.ServerDB.ServerDBService;
+using System.Linq;
 
 namespace EchoRelay.Core.Server.Services.ServerDB
 {
@@ -228,8 +228,26 @@ namespace EchoRelay.Core.Server.Services.ServerDB
             if (registeredGameServer == null)
                 return;
 
+            bool shouldEndSession = false;
+
+            if (registeredGameServer.SessionCursed &&
+                registeredGameServer.SessionPlayerSessions.TryGetValue(request.PlayerSession, out var playerSessionInfo) &&
+                playerSessionInfo.peer.UserId != null)
+            {
+                var account = Storage.Accounts.Get(playerSessionInfo.peer.UserId);
+                shouldEndSession = account != null && account.Cursed;
+            }
+
             // Remove the provided player session from the associated game server.
             await registeredGameServer.RemovePlayer(request.PlayerSession);
+
+            if (shouldEndSession)
+            {
+                await registeredGameServer.Peer.Send(new ERGameServerPlayersRejected(
+                    ERGameServerPlayersRejected.PlayerSessionError.LobbyEnding,
+                    (await registeredGameServer.GetPlayers()).Select(x => x.PlayerSession).ToArray()
+                    ));
+            }
         }
         #endregion
     }

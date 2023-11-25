@@ -38,6 +38,9 @@ namespace EchoRelay.API
         [JsonProperty("teamSessions")]
         public Dictionary<string, short> TeamSessions { get; set; }
 
+        [JsonProperty("cursed")]
+        public bool Cursed { get; set; }
+
         public SessionInfo(RegisteredGameServer gameServer)
         {
             if (!gameServer.SessionStarted)
@@ -56,6 +59,7 @@ namespace EchoRelay.API
             Locked = gameServer.SessionLocked;
             PlayerSessions = new Dictionary<string, string>();
             TeamSessions = new Dictionary<string,  short>();
+            Cursed = gameServer.SessionCursed;
 
             foreach (var player in gameServer.SessionPlayerSessions)
             {

@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
+using static EchoRelay.Core.Server.Messages.ServerDB.ERGameServerPlayersRejected;
 
 namespace EchoRelay.Core.Server.Services.ServerDB
 {
@@ -66,7 +67,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
                 // So we match it with the public IP address we attempt to fetch on server start, and assume anything on the same
                 // internal network is accessible through this IP.
                 if (Peer.Address.IsPrivate())
-                    if(Peer.Server.PublicIPAddress != null)
+                    if (Peer.Server.PublicIPAddress != null)
                         return Peer.Server.PublicIPAddress;
 
                 // The peer address is external, so we return it immediately.
@@ -123,6 +124,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
         /// but the game usually only allows 15 players (3 teams x 5 players each).
         /// </summary>
         public GameTypePlayerLimits.PlayerLimits SessionPlayerLimits { get; set; }
+
         /// <summary>
         /// Indicates whether the server is currently in a locked state.
         /// </summary>
@@ -150,7 +152,9 @@ namespace EchoRelay.Core.Server.Services.ServerDB
         /// Represents the active player sessions in the server.
         /// </summary>
         public Dictionary<Guid, (Peer peer, TeamIndex requestedTeam)> SessionPlayerSessions;
-      
+
+        public bool SessionCursed { get; private set; }
+
         /// <summary>
         /// A lock used for asynchronous/awaitable concurrent access to this object.
         /// </summary>
@@ -230,6 +234,8 @@ namespace EchoRelay.Core.Server.Services.ServerDB
         }
         private async Task StartSessionInternal(XPlatformId requester, ERGameServerStartSession.LobbyType lobbyType, Guid channel, long? gameTypeSymbol, long? levelSymbol, ERGameServerStartSession.SessionSettings? settings)
         {
+            var requesterAccount = Server.Storage.Accounts.Get(requester);
+
             // Remove the previous session id from the parent registry's lookup.
             if (SessionId != null)
                 Registry.RegisteredGameServersBySessionId.Remove(SessionId.Value, out _);
@@ -241,9 +247,9 @@ namespace EchoRelay.Core.Server.Services.ServerDB
             SessionGameTypeSymbol = gameTypeSymbol;
             SessionLevelSymbol = levelSymbol;
             SessionPlayerLimits = GameTypePlayerLimits.DefaultLimits;
-
             SessionPlayerSessions.Clear();
             SessionLocked = false;
+            SessionCursed = false;
 
             // Merge session settings information and send a "start session" message to the game server.
             var mergedSessionSettings = new ERGameServerStartSession.SessionSettings(
@@ -285,8 +291,30 @@ namespace EchoRelay.Core.Server.Services.ServerDB
                 }
             }
 
+            var botSessions = Array.Empty<Guid>();
+            if (mergedSessionSettings.GameType != null)
+            {
+                string? gameTypeName = Server.SymbolCache.GetName(mergedSessionSettings.GameType.Value);
+                if (gameTypeName == "echo_arena" && requesterAccount != null && requesterAccount.Cursed)
+                {
+                    SessionCursed = true;
+
+                    for (int i = 0; i < 4; i++)
+                    {
+                        var botSession = SecureGuidGenerator.Generate();
+                        entrantDescriptors.Add(new ERGameServerStartSession.EntrantDescriptor(
+                            botSession,
+                            new XPlatformId(PlatformCode.BOT, BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(8))),
+                            0x0144BB8000
+                            ));
+                        botSessions = botSessions.Append(botSession).ToArray();
+                    }
+                }
+            }
+
             // Send the start session message to the game server.
             await Peer.Send(new ERGameServerStartSession(SessionId.Value, SessionChannel.Value, (byte)SessionPlayerLimits.TotalPlayerLimit, SessionLobbyType, mergedSessionSettings, entrantDescriptors.ToArray()));
+            await Peer.Send(new ERGameServerPlayersRejected(PlayerSessionError.Internal, botSessions));
 
             // Add the new session id to the parent registry's lookup.
             Registry.RegisteredGameServersBySessionId[SessionId.Value] = this;
@@ -301,20 +329,29 @@ namespace EchoRelay.Core.Server.Services.ServerDB
             // Set the matched game server to this one.
             matchingSession.MatchedGameServer = this;
 
+            var account = Server.Storage.Accounts.Get(matchingSession.UserId);
+
             // Lock throughout this method.
             bool newSessionStarted = false;
             await _accessLock.ExecuteLocked(async () =>
             {
+                TeamIndex teamIndex = matchingSession.TeamIndex;
+
                 // If the server hasn't started a session, direct it to do so now.
                 if (!SessionStarted)
                 {
+                    if (account != null && account.Cursed)
+                    {
+                        teamIndex = TeamIndex.Orange;
+                    }
+
                     // Start a new session on the game server.
                     await StartSessionInternal(
                         matchingSession.UserId,
-                        matchingSession.NewSessionLobbyType, 
+                        matchingSession.NewSessionLobbyType,
                         matchingSession.Channel ?? new Guid(),
                         matchingSession.GameTypeSymbol ?? matchingSession.SessionSettings?.GameType,
-                        matchingSession.LevelSymbol ?? matchingSession.SessionSettings?.Level, 
+                        matchingSession.LevelSymbol ?? matchingSession.SessionSettings?.Level,
                         matchingSession.SessionSettings
                         );
 
@@ -322,7 +359,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
                 }
 
                 // Verify player limits.
-                if (!CheckTeamAvailability(matchingSession.TeamIndex))
+                if (!CheckTeamAvailability(teamIndex))
                 {
                     await matchingPeer.Server.MatchingService.SendLobbySessionFailure(matchingPeer, LobbySessionFailureErrorCode.ServerIsFull, "Team is full");
                     return;
@@ -358,7 +395,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
                     matchingSession: matchingSession.MatchedSessionId!.Value,
                     channelUUID: SessionChannel ?? new Guid(),
                     endpoint: new LobbyPingRequestv3.EndpointData(InternalAddress, ExternalAddress, Port),
-                    teamIndex: (short)matchingSession.TeamIndex,
+                    teamIndex: (short)teamIndex,
                     unk1: 0,
                     serverEncoderFlags: (ulong)serverEncoderSettings,
                     clientEncoderFlags: (ulong)clientEncoderSettings,
@@ -399,10 +436,10 @@ namespace EchoRelay.Core.Server.Services.ServerDB
             });
 
             // If a new session was started, fire the relevant event handlers.
-            if(newSessionStarted)
+            if (newSessionStarted)
                 OnSessionStateChanged?.Invoke(this);
         }
- 
+
         public async Task ProcessPlayerSessionRequest(Peer matchingPeer, XPlatformId userId, Guid channel)
         {
             // Lock throughout this method.
@@ -511,7 +548,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
             });
 
             // Fire the event for players being added
-            if(addedPlayersInfo.Length > 0)
+            if (addedPlayersInfo.Length > 0)
                 OnPlayersAdded?.Invoke(this, addedPlayersInfo);
         }
 
@@ -530,7 +567,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
             await _accessLock.ExecuteLocked(() =>
             {
                 // Try to get the existing peer for this player session.
-                if(SessionPlayerSessions.TryGetValue(playerSession, out var playerInfo))
+                if (SessionPlayerSessions.TryGetValue(playerSession, out var playerInfo))
                     peer = playerInfo.peer;
 
                 // Remove this player session from our lookup if it exists.
@@ -550,7 +587,8 @@ namespace EchoRelay.Core.Server.Services.ServerDB
         public async Task EndSession()
         {
             // Lock throughout this method.
-            await _accessLock.ExecuteLocked(() => {
+            await _accessLock.ExecuteLocked(() =>
+            {
                 // Reset all variables
                 SessionId = null;
                 SessionLobbyType = ERGameServerStartSession.LobbyType.Unassigned;
@@ -560,6 +598,7 @@ namespace EchoRelay.Core.Server.Services.ServerDB
                 SessionLocked = false;
                 SessionPlayerLimits = GameTypePlayerLimits.DefaultLimits;
                 SessionPlayerSessions.Clear();
+                SessionCursed = false;
 
                 return Task.CompletedTask;
             });

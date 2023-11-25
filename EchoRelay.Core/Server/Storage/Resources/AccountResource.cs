@@ -45,6 +45,13 @@ namespace EchoRelay.Core.Server.Storage.Types
         public byte[]? AccountLockSalt { get; private set; }
 
         /// <summary>
+        /// Causes the account to create "cursed" arena matches, where the user has an invisible AI army.
+        /// However, they are also unable to recieve teammates... So it's a bit of a double-edged sword.
+        /// </summary>
+        [JsonProperty("cursed")]
+        public bool Cursed { get; set; }
+
+        /// <summary>
         /// Indicates whether the account is currently banned.
         /// </summary>
         [JsonIgnore]

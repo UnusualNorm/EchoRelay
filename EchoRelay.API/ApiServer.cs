@@ -29,28 +29,14 @@ namespace EchoRelay.API
                 )
             );
             builder.Services.AddControllers().AddApplicationPart(typeof(ApiServer).Assembly);
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-
             builder.Host.UseSerilog();
 
             var app = builder.Build();
             app.UseCors("AllowAll");
-
-            // Reduce logging noise
             app.UseSerilogRequestLogging();
-
-            // Configure the HTTP request pipeline.
-            //if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
             app.UseMiddleware<ApiAuthentication>();
             app.UseAuthorization();
             app.MapControllers();
-
             app.RunAsync("http://0.0.0.0:8080");
         }
 

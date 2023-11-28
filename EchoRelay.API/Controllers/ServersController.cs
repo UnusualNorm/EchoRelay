@@ -40,7 +40,7 @@ namespace EchoRelay.API.Controllers
         }
 
         [HttpGet("{serverId}")]
-        public IActionResult AccountGet(ulong serverId)
+        public IActionResult ServerGet(ulong serverId)
         {
             try
             {

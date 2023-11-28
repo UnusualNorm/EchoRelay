@@ -50,16 +50,16 @@ namespace EchoRelay.API.Controllers
         {
             try
             {
+                if (Storage == null)
+                {
+                    return StatusCode((int)HttpStatusCode.InternalServerError, "Storage is null");
+                }
+
                 using var reader = new StreamReader(HttpContext.Request.Body);
                 var body = await reader.ReadToEndAsync();
                 if (string.IsNullOrEmpty(body))
                 {
                     return BadRequest("Invalid request body");
-                }
-
-                if (Storage == null)
-                {
-                    return StatusCode((int)HttpStatusCode.InternalServerError, "Storage is null");
                 }
 
                 var account = JsonConvert.DeserializeObject<AccountResource>(body);
@@ -140,17 +140,17 @@ namespace EchoRelay.API.Controllers
                     return BadRequest("Invalid id");
                 }
 
+                var account = Storage.Accounts.Get(xPlatformId);
+                if (account == null)
+                {
+                    return NotFound("Account not found");
+                }
+
                 using var reader = new StreamReader(HttpContext.Request.Body);
                 var body = await reader.ReadToEndAsync();
                 if (string.IsNullOrEmpty(body))
                 {
                     return BadRequest("Invalid request body");
-                }
-
-                var account = Storage.Accounts.Get(xPlatformId);
-                if (account == null)
-                {
-                    return NotFound("Account not found");
                 }
 
                 var newAccount = JsonConvert.DeserializeObject<JObject>(body);

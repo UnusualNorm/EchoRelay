@@ -124,7 +124,7 @@ namespace EchoRelay.Core.Server.Services
             var apiKey = context.Request.Headers.Get("X-Api-Key");
             if (apiKey != null && apiKey == Server.Settings.ServerDBApiKey)
             {
-                var proxyAddress = context.Request.Headers.Get("X-Proxy-Address");
+                var proxyAddress = context.Request.Headers.Get("X-Forwarded-For");
                 if (proxyAddress != null)
                 {
                     try
